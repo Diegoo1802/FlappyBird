@@ -1,97 +1,93 @@
 using System.Collections;
 using UnityEngine;
 using UnityEngine.SceneManagement;
-using UnityEngine.Advertisements;
+using UnityEngine.Advertisements; // Importa la librería para manejar anuncios en Unity Ads
 
 public class GameManager : MonoBehaviour, IUnityAdsShowListener, IUnityAdsInitializationListener
 {
-    public GameObject gameoverCanvas;
-    private int deathCount = 0;
+    public GameObject gameoverCanvas; // Referencia al canvas de game over
+    private int deathCount; // Variable para contar el número de muertes
     private int adThresholdMin = 3; // Mínimo de muertes para mostrar un anuncio
     private int adThresholdMax = 5; // Máximo de muertes para mostrar un anuncio
 
-    // Lista de posibles anuncios que puedes mostrar
-    private string[] adUnitIds = new string[] { "Rewarded_Android" }; // Agrega más anuncios si los tienes configurados en Unity Ads
+    private string adUnitId = "Interstitial_Android"; // ID del anuncio que vamos a mostrar (en este caso, intersticial)
 
+    // Se ejecuta cuando inicia el juego
     void Start()
     {
-        // Inicializa Unity Ads y pasa el IUnityAdsInitializationListener
+        // Inicializa Unity Ads. El primer parámetro es el ID de tu proyecto Unity Ads.
         Advertisement.Initialize("5780387", true, this);
-        Time.timeScale = 1;
+
+        // Cargar el contador de muertes desde PlayerPrefs. Si no existe, devuelve 0.
+        deathCount = PlayerPrefs.GetInt("deathCount", 0);
+        Debug.Log($"Contador de muertes cargado: {deathCount}");
+
+        Time.timeScale = 1; // Asegura que el tiempo no esté pausado al inicio
     }
 
-    void Update()
+    // Método que se llama cuando el jugador muere
+    public void RegisterDeath()
     {
-        // Lógica adicional si es necesario
+        deathCount++; // Incrementa el contador de muertes
+        PlayerPrefs.SetInt("deathCount", deathCount); // Guarda el contador de muertes en PlayerPrefs
+
+        Debug.Log($"Número de muertes: {deathCount}");
+
+        // Si el número de muertes está en el rango de 3 a 5, muestra un anuncio
+        if (deathCount >= Random.Range(adThresholdMin, adThresholdMax))
+        {
+            deathCount = 0; // Reinicia el contador de muertes después de mostrar un anuncio
+            PlayerPrefs.SetInt("deathCount", deathCount); // Actualiza el contador en PlayerPrefs
+            ShowAd(); // Muestra el anuncio
+        }
     }
 
+    // Método que se llama cuando el juego termina
     public void GameOver()
     {
-        gameoverCanvas.SetActive(true);
-        Time.timeScale = 0;
+        gameoverCanvas.SetActive(true); // Activa el canvas de Game Over
+        Time.timeScale = 0; // Pausa el juego (tiempo en 0)
 
-        deathCount++;
-        if (deathCount >= Random.Range(adThresholdMin, adThresholdMax)) // Mostrar anuncio cuando mueren entre 3 y 5 veces
-        {
-            deathCount = 0; // Reinicia el contador de muertes
-            ShowRandomAd(); // Muestra un anuncio aleatorio
-        }
+        RegisterDeath(); // Llama a RegisterDeath para gestionar las muertes y mostrar anuncios
     }
 
+    // Método para reiniciar el juego
     public void Restart()
     {
-        SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+        SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex); // Vuelve a cargar la escena actual
     }
 
-    // Función para mostrar un anuncio aleatorio
-    private void ShowRandomAd()
+    // Método para mostrar un anuncio
+    private void ShowAd()
     {
-        // Si Unity Ads está inicializado, muestra un anuncio aleatorio
-        if (Advertisement.isInitialized)
-        {
-            string randomAdUnitId = adUnitIds[Random.Range(0, adUnitIds.Length)]; // Selecciona un anuncio aleatorio de la lista
-            Advertisement.Show(randomAdUnitId, this); // Muestra el anuncio aleatorio seleccionado
-        }
-        else
-        {
-            Debug.Log("Unity Ads no está inicializado.");
-        }
+        // Si el anuncio está listo, lo muestra
+        
+            Advertisement.Show(adUnitId, this); // Muestra el anuncio intersticial
+        
     }
 
-    // Implementación de la interfaz IUnityAdsShowListener
+    // Métodos de IUnityAdsShowListener (son necesarios para escuchar eventos de los anuncios)
     public void OnUnityAdsShowComplete(string placementId, UnityAdsShowCompletionState showResult)
     {
-        // Aquí puedes manejar lo que sucede después de que el anuncio se complete
-        if (showResult == UnityAdsShowCompletionState.COMPLETED)
-        {
-            Debug.Log("El jugador vio el anuncio completo.");
-        }
-        else if (showResult == UnityAdsShowCompletionState.SKIPPED)
-        {
-            Debug.Log("El jugador saltó el anuncio.");
-        }
-        else if (showResult == UnityAdsShowCompletionState.UNKNOWN)
-        {
-            Debug.Log("Hubo un error desconocido al mostrar el anuncio.");
-        }
+        Debug.Log($"Anuncio completado: {placementId} - Resultado: {showResult}");
     }
 
     public void OnUnityAdsShowStart(string placementId)
     {
-        Debug.Log("El anuncio comenzó.");
+        Debug.Log($"Anuncio iniciado: {placementId}");
     }
 
     public void OnUnityAdsShowClick(string placementId)
     {
-        Debug.Log("El jugador hizo clic en el anuncio.");
+        Debug.Log($"El jugador hizo clic en el anuncio: {placementId}");
     }
 
     public void OnUnityAdsShowFailure(string placementId, UnityAdsShowError error, string message)
     {
-        Debug.Log($"Error al mostrar el anuncio: {error.ToString()} - {message}");
+        Debug.LogError($"Error al mostrar el anuncio: {placementId} - {error.ToString()} - {message}");
     }
 
-    // Implementación de la interfaz IUnityAdsInitializationListener
+    // Métodos de IUnityAdsInitializationListener (se ejecutan cuando Unity Ads se inicializa)
     public void OnInitializationComplete()
     {
         Debug.Log("Unity Ads se inicializó correctamente.");
@@ -99,6 +95,6 @@ public class GameManager : MonoBehaviour, IUnityAdsShowListener, IUnityAdsInitia
 
     public void OnInitializationFailed(UnityAdsInitializationError error, string message)
     {
-        Debug.LogError($"Error al inicializar Unity Ads: {error.ToString()} - {message}");
+        Debug.LogError($"Error al inicializar Unity Ads: {error} - {message}");
     }
 }
